@@ -1,4 +1,35 @@
-import logging
+# ===========================================================
+# 🧩 COMPREHENSIVE Patch for Solana + httpx (removes ALL proxy args)
+# ===========================================================
+import httpx
+import solana.rpc.providers.http as sol_http
+
+# --- Patch httpx.Client ---
+_orig_httpx_init = httpx.Client.__init__
+
+def _patched_httpx_init(self, *args, **kwargs):
+    if "proxy" in kwargs:
+        kwargs.pop("proxy", None)
+        print("🧩 Removed unsupported 'proxy' argument from httpx.Client")
+    return _orig_httpx_init(self, *args, **kwargs)
+
+httpx.Client.__init__ = _patched_httpx_init
+
+# --- Patch Solana's HTTPProvider ---
+_orig_http_provider_init = sol_http.HTTPProvider.__init__
+
+def _patched_http_provider_init(self, endpoint_uri, *args, **kwargs):
+    # Silently remove any proxy argument passed from Solana
+    kwargs.pop("proxy", None)
+    return _orig_http_provider_init(self, endpoint_uri, *args, **kwargs)
+
+sol_http.HTTPProvider.__init__ = _patched_http_provider_init
+
+print("✅ httpx.Client AND Solana HTTPProvider patched globally (proxy-safe)")
+# ===========================================================
+# 🧩 Your normal imports start here
+# ===========================================================
+
 import asyncio
 import re
 import pymongo
@@ -11,7 +42,6 @@ from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# ✅ Correct imports for Solana v0.36.6 (modern structure)
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.message import Message
@@ -1975,6 +2005,7 @@ def main():
     print("🆕 NEW: Admin notifications for new users joining")
     print("🔧 FIXED: Markdown parsing error in admin commands")
     print("🔧 FIXED: Application instance reference issue")
+    print("🔧 FIXED: COMPREHENSIVE proxy patch applied to both httpx AND Solana HTTPProvider")
     application.run_polling()
 
 if __name__ == "__main__":
