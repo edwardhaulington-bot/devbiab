@@ -3,6 +3,7 @@
 # ===========================================================
 import httpx
 import solana.rpc.providers.http as sol_http
+import logging  # ✅ added here so logging.basicConfig won't break later
 
 # --- Patch httpx.Client ---
 _orig_httpx_init = httpx.Client.__init__
@@ -20,12 +21,15 @@ _orig_http_provider_init = sol_http.HTTPProvider.__init__
 
 def _patched_http_provider_init(self, endpoint_uri, *args, **kwargs):
     # Silently remove any proxy argument passed from Solana
-    kwargs.pop("proxy", None)
+    if "proxy" in kwargs:
+        kwargs.pop("proxy", None)
+        print("🧩 Removed unsupported 'proxy' argument from Solana HTTPProvider")
     return _orig_http_provider_init(self, endpoint_uri, *args, **kwargs)
 
 sol_http.HTTPProvider.__init__ = _patched_http_provider_init
 
 print("✅ httpx.Client AND Solana HTTPProvider patched globally (proxy-safe)")
+
 # ===========================================================
 # 🧩 Your normal imports start here
 # ===========================================================
@@ -2010,3 +2014,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
