@@ -1,14 +1,15 @@
 # ===========================================================
-# 🧩 COMPREHENSIVE Patch for Solana + httpx (removes ALL proxy args)
+# 🧩 COMPREHENSIVE Patch for Solana + httpx 0.25.2 (removes ALL proxy args)
 # ===========================================================
 import httpx
 import solana.rpc.providers.http as sol_http
-import logging  # ✅ added here so logging.basicConfig won't break later
+import logging  # ensure logging.basicConfig works later
 
 # --- Patch httpx.Client ---
 _orig_httpx_init = httpx.Client.__init__
 
 def _patched_httpx_init(self, *args, **kwargs):
+    # Remove unsupported 'proxy' argument safely
     if "proxy" in kwargs:
         kwargs.pop("proxy", None)
         print("🧩 Removed unsupported 'proxy' argument from httpx.Client")
@@ -20,10 +21,11 @@ httpx.Client.__init__ = _patched_httpx_init
 _orig_http_provider_init = sol_http.HTTPProvider.__init__
 
 def _patched_http_provider_init(self, endpoint_uri, *args, **kwargs):
-    # Silently remove any proxy argument passed from Solana
+    # Remove 'proxy' argument if present
     if "proxy" in kwargs:
         kwargs.pop("proxy", None)
         print("🧩 Removed unsupported 'proxy' argument from Solana HTTPProvider")
+    # Ensure optional headers and other args pass through
     return _orig_http_provider_init(self, endpoint_uri, *args, **kwargs)
 
 sol_http.HTTPProvider.__init__ = _patched_http_provider_init
@@ -2014,3 +2016,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
