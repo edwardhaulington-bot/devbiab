@@ -1,3 +1,22 @@
+# ===========================================================
+# 🧩 Patch for Solana + httpx (removes unsupported 'proxy' arg)
+# ===========================================================
+import httpx
+
+_orig = httpx.Client.__init__
+
+def _patched(self, *args, **kwargs):
+    if "proxy" in kwargs:
+        kwargs.pop("proxy", None)
+        print("🧩 Removed unsupported 'proxy' argument from httpx.Client")
+    return _orig(self, *args, **kwargs)
+
+httpx.Client.__init__ = _patched
+print("✅ httpx.Client patched globally (proxy-safe)")
+
+# ===========================================================
+# 🧩 Your normal imports start here
+# ===========================================================
 import logging
 import asyncio
 import re
@@ -11,7 +30,6 @@ from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# ✅ Correct imports for Solana v0.36.6 (modern structure)
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.message import Message
@@ -1978,4 +1996,5 @@ def main():
     application.run_polling()
 
 if __name__ == "__main__":
+
     main()
